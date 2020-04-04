@@ -52,6 +52,7 @@ def getHistory(pageableObject, channelId, pageSize = 100):
             lastTimestamp = messages[-1]['ts'] # -1 means last element in a list
             sleep(1) # Respect the Slack API rate limit
         else:
+            sleep(1) # Respect the Slack API rate limit (in case succesive calls to getHistory when looping through channels)
             break
 
     if lastTimestamp != None:
