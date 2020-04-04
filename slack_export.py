@@ -22,14 +22,14 @@ import requests
 # channelId is the id of the channel/group/im you want to download history for.
 def getHistory(pageableObject, channelId, pageSize = 100):
     messages = []
-    lastTimestamp = None
+    lastTimestamp = latestTimestamp
 
     while(True):
         try:
             response = pageableObject.history(
                 channel = channelId,
                 latest    = lastTimestamp,
-                oldest    = 0,
+                oldest    = oldestTimestamp,
                 count     = pageSize
             ).body
         except requests.exceptions.HTTPError as e:
@@ -40,7 +40,7 @@ def getHistory(pageableObject, channelId, pageSize = 100):
                 response = pageableObject.history(
                     channel = channelId,
                     latest    = lastTimestamp,
-                    oldest    = 0,
+                    oldest    = oldestTimestamp,
                     count     = pageSize
                 ).body
 
@@ -428,6 +428,18 @@ if __name__ == "__main__":
         default=False,
         help="Only export public channels if the user is a member of the channel")
 
+    parser.add_argument(
+        '--oldestTimestamp',
+        default=None,
+        metavar="OLDEST_TS",
+        help="Fetch messages not older than the given timestamp, formatted as date (%%Y-%%m-%%d)")
+
+    parser.add_argument(
+        '--latestTimestamp',
+        default=None,
+        metavar="LATEST_TS",
+        help="Fetch messages not more recent than the given timestamp, formatted as date (%%Y-%%m-%%d)")
+
     args = parser.parse_args()
 
     users = []
@@ -436,6 +448,9 @@ if __name__ == "__main__":
     dms = []
     userNamesById = {}
     userIdsByName = {}
+
+    oldestTimestamp = datetime.strptime(args.oldestTimestamp, '%Y-%m-%d').timestamp() if args.oldestTimestamp else 0
+    latestTimestamp = datetime.strptime(args.latestTimestamp, '%Y-%m-%d').timestamp() if args.latestTimestamp else None
 
     slack = Slacker(args.token)
     testAuth = doTestAuth()
