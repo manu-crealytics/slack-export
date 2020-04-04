@@ -321,48 +321,54 @@ def downloadFiles(token):
             if not filename.endswith('.json'):
                 continue
             filePath = os.path.join(root, filename)
-            data = []
             with open(filePath) as inFile:
-                data = json.load(inFile)
-                for msg in data:
-                    for slackFile in msg.get("files", []):
-                        # Skip deleted files
-                        if slackFile.get("mode") == "tombstone":
-                            continue
+                data_in = json.load(inFile)
 
-                        for key, value in slackFile.items():
-                            # Find all entries referring to files on files.slack.com
-                            if not isinstance(value, str) or not value.startswith("https://files.slack.com/"):
-                                continue
+            data_out = downloadAndReplace(data_in, token)
 
-                            url = urlparse(value)
+            if data_out != data_in:
+                # Save updated data to json file
+                with open(filePath, "w") as outFile:
+                    json.dump(data_out, outFile, indent=4, sort_keys=True)
 
-                            localFile = os.path.join("../files.slack.com", url.path[1:])  # Need to discard first "/" in URL, because:
-                                # "If a component is an absolute path, all previous components are thrown away and joining continues
-                                # from the absolute path component."
-                            print("Downloading %s, saving to %s" % (url.geturl(), localFile))
+                print("Replaced all files in %s" % filePath)
 
-                            # Create folder structure
-                            os.makedirs(os.path.dirname(localFile), exist_ok=True)
 
-                            # Check if file already downloaded, with same size
-                            if os.path.exists(localFile) and os.path.getsize(localFile) == slackFile.get("size", -1):
-                                print("Skipping already downloaded file: %s" % localFile)
-                                continue
+def downloadAndReplace(data, token):
+    if isinstance(data, dict):
+        return {k: downloadAndReplace(v, token) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [downloadAndReplace(i, token) for i in data]
+    elif isinstance(data, str) and data.startswith("https://files.slack.com/"):
+        static_path = downloadFile(data, token)
+        return static_path
+    else:
+        return data
 
-                            # Download files
-                            headers = {"Authorization": "Bearer %s" % token}
-                            r = requests.get(url.geturl(), headers=headers)
-                            open(localFile, 'wb').write(r.content)
 
-                            # Replace URL in data - suitable for use with slack-export-viewer if files.slack.com is linked
-                            slackFile[key] = "/static/files.slack.com%s" % url.path
+def downloadFile(url_string, token):
+    url = urlparse(url_string)
 
-            # Save updated data to json file
-            with open(filePath, "w") as outFile:
-                json.dump(data, outFile, indent=4, sort_keys=True)
+    localFile = os.path.join("../files.slack.com", url.path[1:])  # Need to discard first "/" in URL, because:
+    # "If a component is an absolute path, all previous components are thrown away and joining continues
+    # from the absolute path component."
+    print("Downloading %s, saving to %s" % (url.geturl(), localFile))
 
-            print("Replaced all files in %s" % filePath)
+    # Create folder structure
+    os.makedirs(os.path.dirname(localFile), exist_ok=True)
+
+    # Check if file already downloaded, with same size
+    if os.path.exists(localFile):
+        print("Skipping already downloaded file: %s" % localFile)
+    else:
+        # Download files
+        headers = {"Authorization": "Bearer %s" % token}
+        r = requests.get(url.geturl(), headers=headers)
+        with open(localFile, 'wb') as fobj:
+            fobj.write(r.content)
+
+    return "/static/files.slack.com%s" % url.path
+
 
 def finalize():
     os.chdir('..')
