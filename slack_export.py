@@ -462,7 +462,7 @@ if __name__ == "__main__":
     dryRun = args.dryRun
     zipName = args.zip
 
-    outputDirectory = "{0}-slack_export".format(datetime.today().strftime("%Y%m%d-%H%M%S"))
+    outputDirectory = "../slack_export_output/slack_export"
     mkdir(outputDirectory)
     os.chdir(outputDirectory)
 
